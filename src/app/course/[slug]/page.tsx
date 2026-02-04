@@ -107,7 +107,7 @@ export default async function CoursePage({ params }: Params) {
     <CourseDetail
       product={product as any}
       hasPurchased={hasPurchased}
-      relatedProducts={relatedProducts}
+      relatedProducts={relatedProducts as any}
       isAuthenticated={!!session?.user}
     />
   );
