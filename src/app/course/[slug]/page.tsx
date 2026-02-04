@@ -101,7 +101,7 @@ export default async function CoursePage({ params }: Params) {
     ? await checkPurchase(session.user.id, product.id)
     : false;
   
-  const relatedProducts = await getRelatedProducts(product.categoryId, product.id);
+  const relatedProducts = product.categoryId ? await getRelatedProducts(product.categoryId, product.id) : [];
   
   return (
     <CourseDetail
