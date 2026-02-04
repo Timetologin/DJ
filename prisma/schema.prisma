@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  CREATOR
+  ADMIN
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ProductType {
+  LESSON
+  COURSE
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String?
+  passwordHash   String
+  role           Role            @default(USER)
+  image          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  
+  creatorProfile CreatorProfile?
+  purchases      Purchase[]
+  
+  @@index([email])
+}
+
+model CreatorProfile {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName  String
+  bio          String?   @db.Text
+  avatarUrl    String?
+  website      String?
+  socialLinks  Json?     // { twitter?: string, instagram?: string, soundcloud?: string, etc. }
+  stripeAccountId String? // For Stripe Connect (future enhancement)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  products     Product[]
+  
+  @@index([userId])
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+  
+  @@index([slug])
+}
+
+model Product {
+  id            String        @id @default(cuid())
+  title         String
+  slug          String        @unique
+  description   String        @db.Text
+  shortDescription String?    @db.VarChar(300)
+  price         Int           // Price in cents
+  type          ProductType   @default(LESSON)
+  level         Level         @default(ALL_LEVELS)
+  status        ProductStatus @default(DRAFT)
+  tags          String[]
+  
+  creatorId     String
+  creator       CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  categoryId    String?
+  category      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  videoAssetId  String?       @unique
+  videoAsset    VideoAsset?   @relation(fields: [videoAssetId], references: [id], onDelete: SetNull)
+  
+  thumbnailUrl  String?
+  previewUrl    String?       // Optional preview/trailer video URL
+  
+  totalDuration Int?          // Total duration in seconds
+  lessonCount   Int           @default(1)
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  publishedAt   DateTime?
+  
+  purchases     Purchase[]
+  
+  @@index([creatorId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([slug])
+}
+
+model VideoAsset {
+  id            String   @id @default(cuid())
+  storageKey    String   // The key/path in S3/R2
+  fileName      String
+  fileSize      Int      // Size in bytes
+  mimeType      String
+  duration      Int?     // Duration in seconds
+  width         Int?
+  height        Int?
+  thumbnailKey  String?  // Auto-generated thumbnail
+  previewKey    String?  // Optional preview clip
+  isProcessed   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  product       Product?
+  
+  @@index([storageKey])
+}
+
+model Purchase {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  stripeSessionId String?        @unique
+  stripePaymentIntentId String?
+  
+  amount          Int            // Amount paid in cents
+  platformFee     Int            @default(0) // Platform fee in cents
+  creatorPayout   Int            @default(0) // Amount to creator in cents
+  
+  status          PurchaseStatus @default(PENDING)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  completedAt     DateTime?
+  
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@index([stripeSessionId])
+  @@index([status])
+}
