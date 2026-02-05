@@ -243,4 +243,27 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     );
   }
 }
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    
+    const product = await prisma.product.update({
+      where: { id: params.id },
+      data: body,
+    });
+
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('Failed to update product:', error);
+    return NextResponse.json({ error: 'Failed to update product' }, { status: 500 });
+  }
+}
 export const dynamic = 'force-dynamic'; 
